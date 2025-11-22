@@ -16,6 +16,7 @@
             <thead class="table-dark">
                 <tr>
                     <th>ID</th>
+                    <th>Tanggal Daftar</th>
                     <th>Nama Peserta</th>
                     <th>Kelas Diambil</th>
                     <th class="text-center">Aksi</th>
@@ -25,6 +26,7 @@
                 @forelse($pendaftaran as $item)
                 <tr>
                     <td>#{{ $item->id }}</td>
+                    <td>{{ \Carbon\Carbon::parse($item->created_at)->format('d M Y, H:i') }}</td>
                     <td class="fw-bold">{{ $item->nama_peserta }}</td>
                     <td>
                         <span class="badge bg-success text-white" style="font-size: 0.9rem;">

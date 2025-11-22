@@ -14,7 +14,8 @@ class PendaftaranController extends Controller
         $pendaftaran = DB::table('pendaftaran')
             ->join('peserta', 'pendaftaran.peserta_id', '=', 'peserta.id')
             ->join('kelas', 'pendaftaran.kelas_id', '=', 'kelas.id')
-            ->select('pendaftaran.id', 'peserta.nama as nama_peserta', 'kelas.nama_kelas')
+            ->select('pendaftaran.id', 'peserta.nama as nama_peserta', 'kelas.nama_kelas', 'pendaftaran.created_at')
+            ->orderBy('pendaftaran.created_at', 'desc') // biar yang muncul paling atas yg terbaru
             ->get();
 
         return view('pendaftaran.index', compact('pendaftaran'));
