@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Kelas;
 use Illuminate\Http\Request;
 use Illuminate\Database\QueryException;
+use Illuminate\Validation\Rule;
 
 class KelasController extends Controller
 {
@@ -20,12 +21,23 @@ class KelasController extends Controller
     public function store(Request $request) {
         try {
             $request->validate([
-                'nama_kelas' => 'required',
-                'instruktur' => 'required',
-                'deskripsi' => 'nullable'
+                'nama_kelas' => 'required|string|max:100',
+                'instruktur' => 'required|string|max:100',
+                'deskripsi'  => 'nullable|string',
+
+                // VALIDASI DUPLIKAT KOMBINASI
+                // Cek: Apakah kombinasi "Nama Kelas" + "Instruktur" sudah ada?
+                Rule::unique('kelas')->where(function ($query) use ($request) {
+                    return $query->where('nama_kelas', $request->nama_kelas)
+                                 ->where('instruktur', $request->instruktur);
+                }),
+            ], [
+                // error
+                'nama_kelas.unique' => 'Gagal! Kelas dengan nama dan instruktur ini sudah terdaftar.',
             ]);
 
             Kelas::create($request->all());
+
             return redirect()->route('kelas.index')->with('success', 'Kelas berhasil ditambahkan');
 
         } catch (\Exception $e) {
@@ -49,15 +61,25 @@ class KelasController extends Controller
     public function update(Request $request, Kelas $kelas) {
         try {
             $request->validate([
-                'nama_kelas' => 'required',
-                'instruktur' => 'required'
+                'nama_kelas' => 'required|string|max:100',
+                'instruktur' => 'required|string|max:100',
+                'deskripsi'  => 'nullable|string',
+
+                // VALIDASI DUPLIKAT (Kecuali Diri Sendiri)
+                Rule::unique('kelas')->where(function ($query) use ($request) {
+                    return $query->where('nama_kelas', $request->nama_kelas)
+                                 ->where('instruktur', $request->instruktur);
+                })->ignore($kelas->id), // abaikan id kelas yang sedang diedit
+            ], [
+                'nama_kelas.unique' => 'Gagal! Kelas dengan nama dan instruktur ini sudah terdaftar.',
             ]);
 
             $kelas->update($request->all());
+
             return redirect()->route('kelas.index')->with('success', 'Data kelas berhasil diperbarui');
 
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Gagal update kelas');
+            return redirect()->back()->with('error', 'Gagal update kelas: ' . $e->getMessage());
         }
     }
 

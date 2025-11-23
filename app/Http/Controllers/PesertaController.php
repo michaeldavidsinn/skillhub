@@ -30,10 +30,10 @@ class PesertaController extends Controller
             return redirect()->route('peserta.index')->with('success', 'Peserta berhasil ditambahkan');
 
         } catch (QueryException $e) {
-            // Error Database (misal koneksi putus / duplikat data lolos validasi)
+            // error Database (misal koneksi putus / duplikat data lolos validasi)
             return redirect()->back()->withInput()->with('error', 'Gagal menyimpan data! Pastikan email belum terdaftar.');
         } catch (\Exception $e) {
-            // Error Umum
+            // error Umum
             return redirect()->back()->with('error', 'Terjadi kesalahan sistem: ' . $e->getMessage());
         }
     }
