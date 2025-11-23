@@ -2,23 +2,34 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Peserta;
 use App\Models\Kelas;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\QueryException;
 
 class PendaftaranController extends Controller
 {
     public function index() {
-        // Menampilkan data relasi
-        $pendaftaran = DB::table('pendaftaran')
-            ->join('peserta', 'pendaftaran.peserta_id', '=', 'peserta.id')
-            ->join('kelas', 'pendaftaran.kelas_id', '=', 'kelas.id')
-            ->select('pendaftaran.id', 'peserta.nama as nama_peserta', 'kelas.nama_kelas', 'pendaftaran.created_at')
-            ->orderBy('pendaftaran.created_at', 'desc') // biar yang muncul paling atas yg terbaru
-            ->get();
+        try {
+            $pendaftaran = DB::table('pendaftaran')
+                ->join('peserta', 'pendaftaran.peserta_id', '=', 'peserta.id')
+                ->join('kelas', 'pendaftaran.kelas_id', '=', 'kelas.id')
+                ->select(
+                    'pendaftaran.id',
+                    'peserta.nama as nama_peserta',
+                    'kelas.nama_kelas',
+                    'pendaftaran.created_at'
+                )
+                ->orderBy('pendaftaran.created_at', 'desc')
+                ->get();
 
-        return view('pendaftaran.index', compact('pendaftaran'));
+            return view('pendaftaran.index', compact('pendaftaran'));
+
+        } catch (\Exception $e) {
+            // jika query gagal (misal nama tabel salah)
+            return back()->with('error', 'Gagal memuat data transaksi.');
+        }
     }
 
     public function create() {
@@ -28,26 +39,35 @@ class PendaftaranController extends Controller
     }
 
     public function store(Request $request) {
-        $request->validate([
-            'peserta_id' => 'required',
-            'kelas_id' => 'required'
-        ]);
+        try {
+            $request->validate([
+                'peserta_id' => 'required',
+                'kelas_id' => 'required'
+            ]);
 
-        $peserta = Peserta::find($request->peserta_id);
+            $peserta = Peserta::findOrFail($request->peserta_id);
 
-        // cek apakah sudah terdaftar (Validasi Logika)
-        if($peserta->kelas->contains($request->kelas_id)) {
-            return back()->with('error', 'Peserta sudah terdaftar di kelas ini!');
+            // cek Duplikasi
+            // "Apakah peserta ini sudah mengambil kelas ini sebelumnya?"
+            if($peserta->kelas->contains($request->kelas_id)) {
+                return back()->with('error', 'Peserta ini SUDAH terdaftar di kelas tersebut!');
+            }
+
+            $peserta->kelas()->attach($request->kelas_id);
+
+            return redirect()->route('pendaftaran.index')->with('success', 'Pendaftaran Berhasil');
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal mendaftar: ' . $e->getMessage());
         }
-
-        // simpen relaso
-        $peserta->kelas()->attach($request->kelas_id);
-
-        return redirect()->route('pendaftaran.index')->with('success', 'Pendaftaran Berhasil');
     }
 
     public function destroy($id) {
-        DB::table('pendaftaran')->where('id', $id)->delete();
-        return redirect()->route('pendaftaran.index');
+        try {
+            DB::table('pendaftaran')->where('id', $id)->delete();
+            return redirect()->route('pendaftaran.index')->with('success', 'Pendaftaran dibatalkan.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal membatalkan pendaftaran.');
+        }
     }
 }

@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Peserta;
+use Illuminate\Http\Request;
+use Illuminate\Database\QueryException;
 
 class PesertaController extends Controller
 {
@@ -17,20 +18,24 @@ class PesertaController extends Controller
     }
 
     public function store(Request $request) {
-        $request->validate([
-            'nama' => 'required',
-            'email' => 'required|email|unique:peserta',
-            'no_hp' => 'required'
-        ]);
-        Peserta::create($request->all());
-        return redirect()->route('peserta.index')->with('success', 'Peserta berhasil ditambahkan');
-    }
+        try {
+            $request->validate([
+                'nama' => 'required',
+                'email' => 'required|email|unique:peserta',
+                'no_hp' => 'required'
+            ]);
 
-    public function show($id)
-    {
-        $peserta = Peserta::findOrFail($id);
+            Peserta::create($request->all());
 
-        return view('peserta.show', compact('peserta'));
+            return redirect()->route('peserta.index')->with('success', 'Peserta berhasil ditambahkan');
+
+        } catch (QueryException $e) {
+            // Error Database (misal koneksi putus / duplikat data lolos validasi)
+            return redirect()->back()->withInput()->with('error', 'Gagal menyimpan data! Pastikan email belum terdaftar.');
+        } catch (\Exception $e) {
+            // Error Umum
+            return redirect()->back()->with('error', 'Terjadi kesalahan sistem: ' . $e->getMessage());
+        }
     }
 
     public function edit(Peserta $peserta) {
@@ -38,31 +43,41 @@ class PesertaController extends Controller
     }
 
     public function update(Request $request, Peserta $peserta) {
-        $peserta->update($request->all());
-        return redirect()->route('peserta.index');
-    }
-
-    public function destroy($id)
-    {
         try {
-            // cari data manual biar pasti ketemu
-            $peserta = Peserta::findOrFail($id);
+            $request->validate([
+                'nama' => 'required',
+                'email' => 'required|email',
+                'no_hp' => 'required'
+            ]);
 
-            // coba hapus
-            $peserta->delete();
-
-            // kalau berhasil, balik ke index
-            return redirect()->route('peserta.index')->with('success', 'Data berhasil dihapus!');
-
-        } catch (\Illuminate\Database\QueryException $e) {
-
-            // JIKA GAGAL (Kena Foreign Key), akan muncul pesan ini
-            return redirect()->route('peserta.index')->with('error', 'Gagal menghapus! Peserta ini masih terdaftar di Kelas. Hapus dulu pendaftarannya, atau pastikan database support Cascade.');
+            $peserta->update($request->all());
+            return redirect()->route('peserta.index')->with('success', 'Data berhasil diperbarui');
 
         } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Gagal update: ' . $e->getMessage());
+        }
+    }
 
-            // error lain
-            return redirect()->route('peserta.index')->with('error', 'Error: ' . $e->getMessage());
+    public function show($id) {
+        try {
+            $peserta = Peserta::findOrFail($id);
+            return view('peserta.show', compact('peserta'));
+        } catch (\Exception $e) {
+            return redirect()->route('peserta.index')->with('error', 'Data peserta tidak ditemukan!');
+        }
+    }
+
+    public function destroy($id) {
+        try {
+            $peserta = Peserta::findOrFail($id);
+            $peserta->delete(); // cascade akan bekerja di sini
+            return redirect()->route('peserta.index')->with('success', 'Data peserta berhasil dihapus');
+
+        } catch (QueryException $e) {
+            // menangkap error jika Cascade gagal
+            return redirect()->route('peserta.index')->with('error', 'Gagal menghapus! Data ini masih berelasi dengan data lain.');
+        } catch (\Exception $e) {
+            return redirect()->route('peserta.index')->with('error', 'Gagal menghapus: ' . $e->getMessage());
         }
     }
 }
