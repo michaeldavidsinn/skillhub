@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Kelas;
 use Illuminate\Http\Request;
 use Illuminate\Database\QueryException;
-use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rule; // Pastikan ini ada
 
 class KelasController extends Controller
 {
@@ -20,21 +20,24 @@ class KelasController extends Controller
 
     public function store(Request $request) {
         try {
+
             $request->validate([
                 'nama_kelas' => 'required|string|max:100',
                 'instruktur' => 'required|string|max:100',
                 'deskripsi'  => 'nullable|string',
-
-                // VALIDASI DUPLIKAT KOMBINASI
-                // Cek: Apakah kombinasi "Nama Kelas" + "Instruktur" sudah ada?
-                Rule::unique('kelas')->where(function ($query) use ($request) {
-                    return $query->where('nama_kelas', $request->nama_kelas)
-                                 ->where('instruktur', $request->instruktur);
-                }),
-            ], [
-                // error
-                'nama_kelas.unique' => 'Gagal! Kelas dengan nama dan instruktur ini sudah terdaftar.',
             ]);
+
+            // cari data yang sama persis
+            $cekDuplikat = Kelas::where('nama_kelas', $request->nama_kelas)
+                                ->where('instruktur', $request->instruktur)
+                                ->exists(); // Hasilnya TRUE atau FALSE
+
+            if ($cekDuplikat) {
+                // 'withInput' agar tulisan yang udah diketik user ga ilang
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Gagal! Kelas dengan nama dan instruktur tersebut SUDAH ADA.');
+            }
 
             Kelas::create($request->all());
 
@@ -47,7 +50,7 @@ class KelasController extends Controller
 
     public function show($id) {
         try {
-            $kelas = Kelas::findOrFail($id);
+            $kelas = Kelas::with('peserta')->findOrFail($id);
             return view('kelas.show', compact('kelas'));
         } catch (\Exception $e) {
             return redirect()->route('kelas.index')->with('error', 'Kelas tidak ditemukan');
@@ -64,15 +67,19 @@ class KelasController extends Controller
                 'nama_kelas' => 'required|string|max:100',
                 'instruktur' => 'required|string|max:100',
                 'deskripsi'  => 'nullable|string',
-
-                // VALIDASI DUPLIKAT (Kecuali Diri Sendiri)
-                Rule::unique('kelas')->where(function ($query) use ($request) {
-                    return $query->where('nama_kelas', $request->nama_kelas)
-                                 ->where('instruktur', $request->instruktur);
-                })->ignore($kelas->id), // abaikan id kelas yang sedang diedit
-            ], [
-                'nama_kelas.unique' => 'Gagal! Kelas dengan nama dan instruktur ini sudah terdaftar.',
             ]);
+
+            // cari data kembar, TAPI ID-nya bukan ID sendiri
+            $cekDuplikat = Kelas::where('nama_kelas', $request->nama_kelas)
+                                ->where('instruktur', $request->instruktur)
+                                ->where('id', '!=', $kelas->id) // abaikan diri sendiri
+                                ->exists();
+
+            if ($cekDuplikat) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Gagal! Kelas dengan nama dan instruktur tersebut SUDAH ADA.');
+            }
 
             $kelas->update($request->all());
 
