@@ -6,7 +6,6 @@ use App\Models\Peserta;
 use App\Models\Kelas;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Database\QueryException;
 
 class PendaftaranController extends Controller
 {
